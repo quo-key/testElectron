@@ -1,0 +1,1216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>封妖统计计数器</title>
+<style>
+  :root {
+    --bg: #0a0b0d;
+    --fg: #e8e8e8;
+    --muted: #9aa5b1;
+    --accent: #2f89ff;
+    --card-bg: #0f1115;
+    --border: #1f2328;
+    --button-bg: #141922;
+    --button-hover: #182032;
+    --success: #10b981;
+    --danger: #ef4444;
+  }
+  
+  /* 亮色主题 */
+  [data-theme="light"] {
+    --bg: #f5f5f7;
+    --fg: #1d1d1f;
+    --muted: #6e6e73;
+    --accent: #007aff;
+    --card-bg: #ffffff;
+    --border: #d2d2d7;
+    --button-bg: #f5f5f7;
+    --button-hover: #e8e8ed;
+    --success: #34c759;
+    --danger: #ff3b30;
+  }
+  
+  /* 蓝色主题 */
+  [data-theme="blue"] {
+    --bg: #0a1929;
+    --fg: #e3f2fd;
+    --muted: #90caf9;
+    --accent: #42a5f5;
+    --card-bg: #132f4c;
+    --border: #1e3a5f;
+    --button-bg: #1e3a5f;
+    --button-hover: #2a4a6f;
+    --success: #66bb6a;
+    --danger: #ef5350;
+  }
+  
+  /* 绿色主题 */
+  [data-theme="green"] {
+    --bg: #0d1b0f;
+    --fg: #e8f5e9;
+    --muted: #a5d6a7;
+    --accent: #4caf50;
+    --card-bg: #1b2e1d;
+    --border: #2e4d31;
+    --button-bg: #2e4d31;
+    --button-hover: #3d5f41;
+    --success: #66bb6a;
+    --danger: #ef5350;
+  }
+  
+  /* 紫色主题 */
+  [data-theme="purple"] {
+    --bg: #1a0d1f;
+    --fg: #f3e5f5;
+    --muted: #ce93d8;
+    --accent: #ab47bc;
+    --card-bg: #2d1b33;
+    --border: #4a2c4d;
+    --button-bg: #4a2c4d;
+    --button-hover: #5a3c5d;
+    --success: #66bb6a;
+    --danger: #ef5350;
+  }
+  
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    margin: 0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  
+  h1 {
+    font-size: 20px;
+    margin: 0 0 16px;
+    font-weight: 600;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .theme-selector {
+    position: relative;
+  }
+  
+  .theme-btn {
+    background: var(--button-bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+  }
+  
+  .theme-btn:hover {
+    background: var(--button-hover);
+  }
+  
+  .theme-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    display: none;
+  }
+  
+  .theme-menu.active {
+    display: block;
+  }
+  
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 14px;
+  }
+  
+  .theme-option:hover {
+    background: var(--button-bg);
+  }
+  
+  .theme-option.active {
+    background: var(--accent);
+    color: white;
+  }
+  
+  .theme-preview {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  
+  .theme-preview.dark {
+    background: linear-gradient(135deg, #0a0b0d 0%, #0f1115 50%, #1f2328 100%);
+  }
+  
+  .theme-preview.light {
+    background: linear-gradient(135deg, #f5f5f7 0%, #ffffff 50%, #d2d2d7 100%);
+  }
+  
+  .theme-preview.blue {
+    background: linear-gradient(135deg, #0a1929 0%, #132f4c 50%, #1e3a5f 100%);
+  }
+  
+  .theme-preview.green {
+    background: linear-gradient(135deg, #0d1b0f 0%, #1b2e1d 50%, #2e4d31 100%);
+  }
+  
+  .theme-preview.purple {
+    background: linear-gradient(135deg, #1a0d1f 0%, #2d1b33 50%, #4a2c4d 100%);
+  }
+  
+  .btn {
+    background: var(--button-bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  
+  .btn-decrease {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+  }
+  
+  .btn-increase {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
+  }
+  
+  .btn:hover:not(:disabled) {
+    background: var(--button-hover);
+    transform: translateY(-1px);
+  }
+  
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+  }
+  
+  .counter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .counter-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  
+  .counter-card:hover {
+    border-color: #2a3340;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  .counter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  
+  .counter-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    flex: 1;
+    word-break: break-word;
+  }
+  
+  .counter-delete {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 18px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: all 0.2s;
+  }
+  
+  .counter-delete:hover {
+    opacity: 1;
+    color: var(--danger);
+  }
+  
+  .counter-image-container {
+    width: 100%;
+    height: 120px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .counter-image-container:hover {
+    border-color: var(--accent);
+  }
+  
+  .counter-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .image-placeholder {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .image-upload-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .counter-image-container:hover .image-upload-btn {
+    opacity: 1;
+  }
+  
+  .counter-value {
+    font-size: 48px;
+    font-weight: 700;
+    text-align: center;
+    margin: 16px 0;
+    color: var(--accent);
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .counter-controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  
+  .counter-controls .btn {
+    flex: 1;
+    padding: 12px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .btn-reset {
+    background: var(--muted);
+    color: white;
+    border-color: var(--muted);
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  
+  .empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal.active {
+    display: flex;
+  }
+  
+  .modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+  
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .modal-close:hover {
+    color: var(--fg);
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  .form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  
+  .form-input {
+    width: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+  
+  .form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  
+  .form-actions .btn {
+    flex: 1;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  
+  .alert-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .alert-modal.active {
+    display: flex;
+  }
+  
+  .alert-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    animation: alertPop 0.3s ease-out;
+  }
+  
+  @keyframes alertPop {
+    0% {
+      transform: scale(0.8);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  
+  .alert-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+  
+  .alert-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--accent);
+  }
+  
+  .alert-message {
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  
+  .counter-value-warning {
+    color: var(--danger) !important;
+    animation: pulse 1s ease-in-out infinite;
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.02);
+    }
+  }
+  
+  .max-value-indicator {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-align: center;
+  }
+  
+  .max-value-indicator.reached {
+    color: var(--danger);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-left">
+        <h1>计数器</h1>
+        <div class="theme-selector">
+          <button class="theme-btn" id="themeBtn">
+            <span>🎨</span>
+            <span id="themeName">主题</span>
+            <span>▼</span>
+          </button>
+          <div class="theme-menu" id="themeMenu">
+            <div class="theme-option active" data-theme="dark" onclick="setTheme('dark')">
+              <div class="theme-preview dark"></div>
+              <span>深色</span>
+            </div>
+            <div class="theme-option" data-theme="light" onclick="setTheme('light')">
+              <div class="theme-preview light"></div>
+              <span>亮色</span>
+            </div>
+            <div class="theme-option" data-theme="blue" onclick="setTheme('blue')">
+              <div class="theme-preview blue"></div>
+              <span>蓝色</span>
+            </div>
+            <div class="theme-option" data-theme="green" onclick="setTheme('green')">
+              <div class="theme-preview green"></div>
+              <span>绿色</span>
+            </div>
+            <div class="theme-option" data-theme="purple" onclick="setTheme('purple')">
+              <div class="theme-preview purple"></div>
+              <span>紫色</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <div id="totalStats" style="display: none; padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; font-size: 14px;">
+          <span style="color: var(--muted);">总计: </span>
+          <span id="totalValue" style="color: var(--accent); font-weight: 600; font-size: 18px;">0</span>
+        </div>
+        <button class="btn btn-danger" id="resetAll" style="display: none;">重置全部</button>
+        <button class="btn" id="batchEditThreshold" style="display: none;">批量修改阈值</button>
+        <button class="btn btn-primary" id="addCounter">+ 添加计数器</button>
+      </div>
+    </div>
+    
+    <div class="counter-grid" id="counterGrid">
+      <!-- 计数器卡片将动态插入这里 -->
+    </div>
+    
+    <div class="empty-state" id="emptyState">
+      <div class="empty-state-icon">📊</div>
+      <div>还没有计数器，点击上方按钮添加一个吧！</div>
+    </div>
+  </div>
+  
+  <!-- 添加/编辑计数器模态框 -->
+  <div class="modal" id="counterModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">添加计数器</h2>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <form id="counterForm">
+        <div class="form-group">
+          <label class="form-label" for="counterName">名称</label>
+          <input type="text" id="counterName" class="form-input" placeholder="请输入计数器名称" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="counterImage">图片（可选）</label>
+          <input type="file" id="counterImage" class="form-input" accept="image/*">
+          <div class="hint" style="margin-top: 8px; color: var(--muted); font-size: 12px;">
+            支持 JPG、PNG 等格式，图片会自动压缩存储。编辑时可更换图片。
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="counterMaxValue">最大阈值（可选）</label>
+          <input type="number" id="counterMaxValue" class="form-input" placeholder="留空表示无限制" min="1">
+          <div class="hint" style="margin-top: 8px; color: var(--muted); font-size: 12px;">
+            达到此数值时会弹出提醒
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" id="modalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <input type="file" id="imageInput" class="hidden" accept="image/*">
+  
+  <!-- 阈值提醒弹窗 -->
+  <div class="alert-modal" id="alertModal">
+    <div class="alert-content">
+      <div class="alert-icon">⚠️</div>
+      <div class="alert-title" id="alertTitle">达到最大阈值！</div>
+      <div class="alert-message" id="alertMessage"></div>
+      <button class="btn btn-primary" onclick="closeAlert()">知道了</button>
+    </div>
+  </div>
+  
+  <!-- 批量修改阈值模态框 -->
+  <div class="modal" id="batchThresholdModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">批量修改阈值</h2>
+        <button class="modal-close" id="batchModalClose">&times;</button>
+      </div>
+      <form id="batchThresholdForm">
+        <div class="form-group">
+          <label class="form-label">统一设置为</label>
+          <input type="number" id="batchThresholdValue" class="form-input" placeholder="留空表示清除所有阈值" min="1">
+          <div class="hint" style="margin-top: 8px; color: var(--muted); font-size: 12px;">
+            将把所有计数器的阈值设置为相同值，留空则清除所有阈值
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">当前计数器列表</label>
+          <div id="batchCounterList" style="max-height: 200px; overflow-y: auto; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px;">
+            <!-- 计数器列表将动态插入 -->
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn" id="batchModalCancel">取消</button>
+          <button type="submit" class="btn btn-primary">应用</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+<script>
+// ========== 数据存储 ==========
+const STORAGE_KEY = 'counters_data';
+const THEME_KEY = 'app_theme';
+
+function saveCounters(counters) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(counters));
+  } catch (e) {
+    console.error('保存失败:', e);
+    alert('保存失败，存储空间可能已满');
+  }
+}
+
+function loadCounters() {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('加载失败:', e);
+    return [];
+  }
+}
+
+function saveTheme(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (e) {
+    console.error('保存主题失败:', e);
+  }
+}
+
+function loadTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY) || 'dark';
+  } catch (e) {
+    console.error('加载主题失败:', e);
+    return 'dark';
+  }
+}
+
+// ========== 图片压缩 ==========
+function compressImage(file, maxWidth = 800, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // 计算新尺寸
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 转换为 base64
+        canvas.toBlob((blob) => {
+          const reader2 = new FileReader();
+          reader2.onload = () => resolve(reader2.result);
+          reader2.onerror = reject;
+          reader2.readAsDataURL(blob);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ========== 计数器管理 ==========
+let counters = loadCounters();
+let editingIndex = -1;
+let currentImageUploadCounter = null;
+
+function renderCounters() {
+  const grid = document.getElementById('counterGrid');
+  const emptyState = document.getElementById('emptyState');
+  
+  if (counters.length === 0) {
+    grid.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  emptyState.style.display = 'none';
+  const resetAllBtn = document.getElementById('resetAll');
+  const batchEditBtn = document.getElementById('batchEditThreshold');
+  const totalStats = document.getElementById('totalStats');
+  
+  resetAllBtn.style.display = counters.length > 0 ? 'block' : 'none';
+  batchEditBtn.style.display = counters.length > 0 ? 'block' : 'none';
+  totalStats.style.display = counters.length > 0 ? 'block' : 'none';
+  
+  // 计算总统计值
+  const totalValue = counters.reduce((sum, counter) => sum + counter.value, 0);
+  document.getElementById('totalValue').textContent = totalValue;
+  
+  grid.innerHTML = counters.map((counter, index) => {
+    const maxValue = counter.maxValue;
+    const isReached = maxValue && counter.value >= maxValue;
+    const valueClass = isReached ? 'counter-value-warning' : '';
+    
+    return `
+    <div class="counter-card" data-index="${index}">
+      <div class="counter-header">
+        <h3 class="counter-title">${escapeHtml(counter.name)}</h3>
+        <div style="display: flex; gap: 4px;">
+          <button class="counter-delete" onclick="openModal(${index})" title="编辑" style="opacity: 0.6;">✎</button>
+          <button class="counter-delete" onclick="deleteCounter(${index})" title="删除">×</button>
+        </div>
+      </div>
+      <div class="counter-image-container" onclick="openImagePicker(${index})">
+        ${counter.image ? 
+          `<img src="${counter.image}" class="counter-image" alt="${escapeHtml(counter.name)}">` : 
+          `<div class="image-placeholder">点击选择图片</div>`
+        }
+        <button class="image-upload-btn" onclick="event.stopPropagation(); openImagePicker(${index})">更换</button>
+      </div>
+      <div class="counter-value ${valueClass}" id="value-${index}">${counter.value}</div>
+      ${maxValue ? `
+        <div class="max-value-indicator ${isReached ? 'reached' : ''}">
+          ${isReached ? '⚠️ ' : ''}最大阈值: ${maxValue}
+        </div>
+      ` : ''}
+      <div class="counter-controls">
+        <button class="btn btn-decrease" onclick="decreaseCounter(${index})" ${counter.value === 0 ? 'disabled' : ''}>−</button>
+        <button class="btn btn-reset" onclick="resetCounter(${index})">重置</button>
+        <button class="btn btn-increase" onclick="increaseCounter(${index})">+</button>
+      </div>
+    </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function increaseCounter(index) {
+  const counter = counters[index];
+  const maxValue = counter.maxValue;
+  
+  counter.value++;
+  
+  // 检查是否刚好达到或超过阈值（不限制继续增加，只提醒）
+  if (maxValue && counter.value >= maxValue) {
+    // 只在刚好达到阈值时提醒一次
+    if (counter.value === maxValue) {
+      showAlert(counter.name, maxValue);
+    }
+  }
+  
+  saveCounters(counters);
+  renderCounters();
+}
+
+function decreaseCounter(index) {
+  if (counters[index].value > 0) {
+    counters[index].value--;
+    saveCounters(counters);
+    renderCounters();
+  }
+}
+
+function resetCounter(index) {
+  counters[index].value = 0;
+  saveCounters(counters);
+  renderCounters();
+}
+
+function deleteCounter(index) {
+  if (confirm('确定要删除这个计数器吗？')) {
+    counters.splice(index, 1);
+    saveCounters(counters);
+    renderCounters();
+  }
+}
+
+function resetAllCounters() {
+  if (counters.length === 0) return;
+  
+  if (confirm(`确定要重置所有 ${counters.length} 个计数器吗？`)) {
+    counters.forEach(counter => {
+      counter.value = 0;
+    });
+    saveCounters(counters);
+    renderCounters();
+  }
+}
+
+function openImagePicker(index) {
+  currentImageUploadCounter = index;
+  document.getElementById('imageInput').click();
+}
+
+// ========== 模态框管理 ==========
+const modal = document.getElementById('counterModal');
+const modalTitle = document.getElementById('modalTitle');
+const counterForm = document.getElementById('counterForm');
+const counterName = document.getElementById('counterName');
+const counterImage = document.getElementById('counterImage');
+
+function openModal(index = -1) {
+  editingIndex = index;
+  const counterMaxValue = document.getElementById('counterMaxValue');
+  
+  if (index >= 0) {
+    const counter = counters[index];
+    modalTitle.textContent = '编辑计数器';
+    counterName.value = counter.name;
+    counterImage.value = '';
+    counterMaxValue.value = counter.maxValue || '';
+    // 编辑时可以更换图片，如果已有图片会保留，选择新图片会替换
+  } else {
+    modalTitle.textContent = '添加计数器';
+    counterName.value = '';
+    counterImage.value = '';
+    counterMaxValue.value = '';
+  }
+  modal.classList.add('active');
+  counterName.focus();
+}
+
+function closeModal() {
+  modal.classList.remove('active');
+  counterForm.reset();
+  editingIndex = -1;
+}
+
+counterForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const name = counterName.value.trim();
+  if (!name) {
+    alert('请输入计数器名称');
+    return;
+  }
+  
+  let imageData = null;
+  if (counterImage.files.length > 0) {
+    try {
+      const file = counterImage.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        alert('图片文件过大，请选择小于 10MB 的图片');
+        return;
+      }
+      imageData = await compressImage(file);
+    } catch (error) {
+      alert('图片处理失败: ' + error.message);
+      return;
+    }
+  }
+  
+  const counterMaxValue = document.getElementById('counterMaxValue');
+  const maxValue = counterMaxValue.value.trim() ? parseInt(counterMaxValue.value) : null;
+  
+  if (maxValue !== null && (isNaN(maxValue) || maxValue < 1)) {
+    alert('最大阈值必须是大于0的整数');
+    return;
+  }
+  
+  if (editingIndex >= 0) {
+    // 编辑
+    counters[editingIndex].name = name;
+    // 如果选择了新图片则替换，否则保留原图片
+    if (imageData) {
+      counters[editingIndex].image = imageData;
+    }
+    // 如果清空了最大阈值，设置为 null
+    counters[editingIndex].maxValue = maxValue;
+  } else {
+    // 新增
+    counters.push({
+      id: Date.now(),
+      name: name,
+      value: 0,
+      image: imageData,
+      maxValue: maxValue
+    });
+  }
+  
+  saveCounters(counters);
+  renderCounters();
+  closeModal();
+});
+
+// 图片选择处理
+document.getElementById('imageInput').addEventListener('change', async (e) => {
+  if (e.target.files.length === 0 || currentImageUploadCounter === null) return;
+  
+  const file = e.target.files[0];
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件');
+    return;
+  }
+  
+  if (file.size > 10 * 1024 * 1024) {
+    alert('图片文件过大，请选择小于 10MB 的图片');
+    return;
+  }
+  
+  try {
+    const compressedImage = await compressImage(file);
+    counters[currentImageUploadCounter].image = compressedImage;
+    saveCounters(counters);
+    renderCounters();
+  } catch (error) {
+    alert('图片处理失败: ' + error.message);
+  }
+  
+  e.target.value = '';
+  currentImageUploadCounter = null;
+});
+
+// ========== 主题管理 ==========
+const themeNames = {
+  dark: '深色',
+  light: '亮色',
+  blue: '蓝色',
+  green: '绿色',
+  purple: '紫色'
+};
+
+// 全局函数，供 HTML onclick 调用
+window.setTheme = function(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  saveTheme(theme);
+  updateThemeUI(theme);
+};
+
+function updateThemeUI(theme) {
+  const themeName = document.getElementById('themeName');
+  const themeOptions = document.querySelectorAll('.theme-option');
+  
+  themeName.textContent = themeNames[theme] || theme;
+  
+  themeOptions.forEach(option => {
+    if (option.getAttribute('data-theme') === theme) {
+      option.classList.add('active');
+    } else {
+      option.classList.remove('active');
+    }
+  });
+  
+  closeThemeMenu();
+}
+
+function toggleThemeMenu() {
+  const menu = document.getElementById('themeMenu');
+  menu.classList.toggle('active');
+}
+
+function closeThemeMenu() {
+  const menu = document.getElementById('themeMenu');
+  menu.classList.remove('active');
+}
+
+// 主题按钮事件
+document.getElementById('themeBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleThemeMenu();
+});
+
+// 点击外部关闭主题菜单
+document.addEventListener('click', (e) => {
+  const themeSelector = document.querySelector('.theme-selector');
+  if (!themeSelector.contains(e.target)) {
+    closeThemeMenu();
+  }
+});
+
+// ========== 弹窗提醒 ==========
+function showAlert(counterName, maxValue) {
+  const alertModal = document.getElementById('alertModal');
+  const alertTitle = document.getElementById('alertTitle');
+  const alertMessage = document.getElementById('alertMessage');
+  
+  alertTitle.textContent = '达到最大阈值！';
+  alertMessage.textContent = `计数器 "${counterName}" 已达到最大阈值 ${maxValue}。`;
+  
+  alertModal.classList.add('active');
+}
+
+window.closeAlert = function() {
+  const alertModal = document.getElementById('alertModal');
+  alertModal.classList.remove('active');
+};
+
+// 点击弹窗外部关闭
+document.getElementById('alertModal').addEventListener('click', (e) => {
+  if (e.target.id === 'alertModal') {
+    closeAlert();
+  }
+});
+
+// ========== 批量修改阈值 ==========
+const batchThresholdModal = document.getElementById('batchThresholdModal');
+const batchThresholdForm = document.getElementById('batchThresholdForm');
+const batchCounterList = document.getElementById('batchCounterList');
+
+function openBatchThresholdModal() {
+  // 更新计数器列表显示
+  batchCounterList.innerHTML = counters.map((counter, index) => {
+    const maxValue = counter.maxValue ? `阈值: ${counter.maxValue}` : '无阈值';
+    return `
+      <div style="padding: 8px; margin-bottom: 8px; background: var(--card-bg); border-radius: 6px; border: 1px solid var(--border);">
+        <div style="font-weight: 600; margin-bottom: 4px;">${escapeHtml(counter.name)}</div>
+        <div style="font-size: 12px; color: var(--muted);">当前值: ${counter.value} | ${maxValue}</div>
+      </div>
+    `;
+  }).join('');
+  
+  document.getElementById('batchThresholdValue').value = '';
+  batchThresholdModal.classList.add('active');
+}
+
+function closeBatchThresholdModal() {
+  batchThresholdModal.classList.remove('active');
+  batchThresholdForm.reset();
+}
+
+batchThresholdForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  
+  const batchValue = document.getElementById('batchThresholdValue').value.trim();
+  const newThreshold = batchValue ? parseInt(batchValue) : null;
+  
+  if (newThreshold !== null && (isNaN(newThreshold) || newThreshold < 1)) {
+    alert('阈值必须是大于0的整数');
+    return;
+  }
+  
+  // 批量更新所有计数器的阈值
+  counters.forEach(counter => {
+    counter.maxValue = newThreshold;
+  });
+  
+  saveCounters(counters);
+  renderCounters();
+  closeBatchThresholdModal();
+});
+
+// ========== 事件绑定 ==========
+document.getElementById('addCounter').addEventListener('click', () => openModal());
+document.getElementById('resetAll').addEventListener('click', resetAllCounters);
+document.getElementById('batchEditThreshold').addEventListener('click', openBatchThresholdModal);
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalCancel').addEventListener('click', closeModal);
+document.getElementById('batchModalClose').addEventListener('click', closeBatchThresholdModal);
+document.getElementById('batchModalCancel').addEventListener('click', closeBatchThresholdModal);
+
+// 点击模态框外部关闭
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) {
+    closeModal();
+  }
+});
+
+batchThresholdModal.addEventListener('click', (e) => {
+  if (e.target === batchThresholdModal) {
+    closeBatchThresholdModal();
+  }
+});
+
+// ESC 键关闭模态框
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (modal.classList.contains('active')) {
+      closeModal();
+    }
+    if (batchThresholdModal.classList.contains('active')) {
+      closeBatchThresholdModal();
+    }
+    closeThemeMenu();
+  }
+});
+
+// ========== 初始化 ==========
+// 加载主题
+const savedTheme = loadTheme();
+setTheme(savedTheme);
+
+// 渲染计数器
+renderCounters();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,62 @@
+{
+  "name": "testdemo",
+  "version": "1.0.0",
+  "description": "TestDemo - 将静态页面打包为桌面应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "npm run generate-icon && electron-builder --win nsis",
+    "dist:fast": "npm run generate-icon && electron-builder --win portable --x64 --dir",
+  "quick-pack": "node ./scripts/quick-pack.js",
+  "package-installer": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Compress-Archive -Path .\\dist\\计算器-1.0.0.exe -DestinationPath .\\dist\\计算器-1.0.0.zip -Force\"",
+    "generate-icon": "node ./scripts/generate-icon.js",
+    "client:dev": "vite",
+    "client:build": "vite build",
+    "client:preview": "vite preview --port 5173",
+    "dev": "npm run client:dev",
+    "build": "npm run client:build"
+  },
+  "author": "",
+  "license": "MIT",
+  "build": {
+    "appId": "com.example.testdemo",
+    "productName": "计算器",
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "package.json",
+      "build/icon.ico",
+      "test.html"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "icon": "build/icon.ico",
+    "npmRebuild": false,
+    "asar": false,
+    "compression": "store",
+    "artifactName": "${productName}-${version}.${ext}",
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.28",
+    "@types/react-dom": "^18.2.8",
+    "@vitejs/plugin-react": "^4.0.0",
+    "electron": "^39.1.1",
+    "electron-builder": "^26.0.12",
+    "electron-packager": "^17.1.2",
+    "jimp": "^1.6.0",
+    "png-to-ico": "^3.0.1",
+    "pureimage": "^0.4.18",
+    "typescript": "^5.2.0",
+    "vite": "^5.0.0"
+  }
+}

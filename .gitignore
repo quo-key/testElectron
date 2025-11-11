@@ -1,0 +1,6 @@
+/node_modules
+/dist
+
+# Ignore build output and packaged installers
+# If you need to keep a specific file in dist (e.g. a README or .gitkeep), add an exception like:
+# !/dist/.gitkeep

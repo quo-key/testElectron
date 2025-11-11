@@ -1,0 +1,9 @@
+请把你想要的 Windows 图标文件放到此处，命名为 `icon.ico`。
+
+建议步骤：
+1. 使用在线工具（例如 https://www.bejson.com/ui/icomaker/ 或者本地工具）把 PNG 转换为 .ico（包含 256x256、48x48、32x32、16x16 等分辨率）。
+2. 将生成的 `icon.ico` 复制到本项目的 `build/` 目录下（覆盖此占位文件）。
+3. 重新运行：
+   npm run dist
+
+注意：如果你只想快速测试，不放置 icon 也能运行，但生成的 exe 会使用默认 Electron 图标。
