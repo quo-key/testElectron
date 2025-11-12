@@ -1,0 +1,62 @@
+:root{
+  --bg: #fff;
+  --card-bg: #ffffff;
+  --border: #e8e8e8;
+  --muted: #888;
+  --accent: #1890ff;
+  --danger: #ff4d4f;
+}
+
+.cp-container{
+  padding: 18px 20px;
+}
+
+.cp-header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.cp-title{
+  font-size:18px;
+  font-weight:600;
+  margin:0;
+}
+
+.cp-controls{ display:flex; gap:8px; align-items:center }
+.cp-theme{ display:flex; align-items:center; gap:6px }
+.cp-theme-label{ margin-right:6px; color:var(--muted); }
+.cp-actions{ margin-left:auto; display:flex; gap:8px }
+.cp-total{ margin-left:12px; color:var(--muted); }
+
+.cp-body{ margin-top:20px }
+.cp-empty{ text-align:center; padding:60px; color:var(--muted) }
+.cp-empty-emoji{ font-size:48px }
+
+.cp-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px }
+.cp-card{ background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:20px }
+.cp-card-header{ display:flex; justify-content:space-between; align-items:flex-start }
+.cp-card-title{ margin:0; font-size:16px }
+.cp-card-controls{ display:flex; gap:6px }
+
+.cp-avatar-row{ margin-top:12px; display:flex; align-items:center; justify-content:center; position:relative }
+.cp-avatar-wrapper{ width:120px; height:120px; border-radius:50%; overflow:hidden; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; margin:0 auto }
+.cp-avatar{ width:100%; height:100%; object-fit:cover; border-radius:50% }
+.cp-avatar-placeholder{ color:var(--muted); cursor:pointer }
+.cp-change-btn{ position:absolute; top:6px; right:6px }
+
+.cp-value{ font-size:48px; font-weight:700; color:var(--accent); text-align:center; margin-top:16px }
+.cp-threshold{ margin-top:8px; text-align:center }
+.cp-threshold-inner{ font-size:12px; color:var(--muted) }
+.cp-footer-buttons{ display:flex; gap:12px; margin-top:16px; justify-content:center }
+
+.cp-select{ width:140px }
+.cp-file-input{ display:none }
+.cp-fullwidth{ width:100% }
+
+.cp-batch-top{ margin-bottom:12px }
+.cp-batch-desc{ margin-bottom:6px; color:var(--muted) }
+.cp-batch-list{ max-height:260px; overflow-y:auto; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:12px }
+.cp-batch-item{ padding:8px; margin-bottom:8px; background:var(--card-bg); border-radius:6px; border:1px solid var(--border) }
+.cp-batch-item-name{ font-weight:600 }
+.cp-batch-item-sub{ font-size:12px; color:var(--muted) }
