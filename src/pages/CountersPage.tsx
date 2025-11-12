@@ -75,6 +75,8 @@ export default function CountersPage(): JSX.Element {
     return () => window.removeEventListener('appStateChanged', onStateChanged)
   }, [])
 
+  const currentCategoryName = categories.find(c => c.id === selectedCategoryId)?.name ?? '未选择'
+
   function openModal(counterId: number | null = null) {
     setEditingCounterId(counterId)
     setModalOpen(true)
@@ -207,13 +209,13 @@ export default function CountersPage(): JSX.Element {
   return (
     <div className="cp-container">
       <div className="cp-header">
-        <h1 className="cp-title">自动统计计数器</h1>
+        {/* <h1 className="cp-title">自动统计计数器</h1> */}
 
         <div className="cp-controls">
           <div className="cp-theme">
-            <span className="cp-theme-label">大类</span>
+            <span className="cp-theme-label">场景</span>
             <Select value={selectedCategoryId} onChange={(v) => setSelectedCategoryId(v)} className="cp-select" options={categories.map(c => ({ value: c.id, label: c.name }))} />
-            <Button size="small" onClick={() => navigate('/categories')}>管理大类</Button>
+            <Button size="small" onClick={() => navigate('/categories')}>管理场景</Button>
 
             <div style={{ width: 12 }} />
             <span className="cp-theme-label">主题</span>
@@ -232,8 +234,7 @@ export default function CountersPage(): JSX.Element {
             <Button type="default" size="middle" onClick={() => openModal(null)} disabled={!selectedCategoryId}>添加计数器</Button>
           </div>
         </div>
-
-        <div className="cp-total">{counters.filter(c=>c.categoryId===selectedCategoryId).reduce((a,b)=>a+b.value,0)}</div>
+        <div className="cp-total">今日 <span className="cp-current-cat">{currentCategoryName}</span> 累计已封：{counters.filter(c=>c.categoryId===selectedCategoryId).reduce((a,b)=>a+b.value,0)}</div>
       </div>
 
       <div className="cp-body">

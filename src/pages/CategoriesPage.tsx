@@ -21,7 +21,7 @@ export default function CategoriesPage(): JSX.Element {
   function handleDelete(id: number) {
     const cat = categories.find(x => x.id === id)
     if (!cat) return
-    Modal.confirm({ title: '删除大类', content: `删除大类 "${cat.name}" 会同时删除其下所有计数器，确定吗？`, okText: '删除', okButtonProps: { danger: true }, onOk() {
+    Modal.confirm({ title: '删除场景', content: `删除场景 "${cat.name}" 会同时删除其下所有计数器，确定吗？`, okText: '删除', okButtonProps: { danger: true }, onOk() {
       const newCats = categories.filter(x => x.id !== id)
       const persistedState = loadState()
       persistedState.categories = newCats
@@ -41,7 +41,7 @@ export default function CategoriesPage(): JSX.Element {
       const persistedState = loadState()
       const nameLower = name.toLowerCase()
       const duplicate = persistedState.categories.some(c => c.name.trim().toLowerCase() === nameLower && c.id !== editingId)
-      if (duplicate) { message.error('已存在相同名称的大类，请使用不同名称'); return }
+      if (duplicate) { message.error('已存在相同名称的场景，请使用不同名称'); return }
       if (editingId === null) {
         const id = Date.now()
         const cat: Category = { id, name }
@@ -52,7 +52,7 @@ export default function CategoriesPage(): JSX.Element {
         persistedState.categories = persistedState.categories.map(c => c.id === editingId ? { ...c, name } : c)
         saveState(persistedState)
         setCategories(persistedState.categories)
-        message.success('大类名称已更新，计数器显示将随之变化')
+        message.success('场景名称已更新，计数器显示将随之变化')
       }
       setFormOpen(false)
       window.dispatchEvent(new Event('appStateChanged'))
@@ -63,14 +63,14 @@ export default function CategoriesPage(): JSX.Element {
   return (
     <div style={{ padding: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>大类管理</h2>
+        <h2 style={{ margin: 0 }}>场景管理</h2>
         <div style={{ marginLeft: 'auto' }}>
           <Button onClick={() => nav('/')}>返回计数器</Button>
         </div>
       </div>
 
       <div style={{ marginBottom: 12 }}>
-        <Button type="primary" onClick={openNew}>添加大类</Button>
+        <Button type="primary" onClick={openNew}>添加场景</Button>
       </div>
 
       <List bordered dataSource={categories} renderItem={item => (
@@ -79,9 +79,9 @@ export default function CategoriesPage(): JSX.Element {
         </List.Item>
       )} />
 
-      <Modal open={formOpen} title={editingId ? '编辑大类' : '添加大类'} onCancel={() => setFormOpen(false)} onOk={handleOk} okText="保存" cancelText="取消">
+      <Modal open={formOpen} title={editingId ? '编辑场景' : '添加场景'} onCancel={() => setFormOpen(false)} onOk={handleOk} okText="保存" cancelText="取消">
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="大类名称" rules={[{ required: true, message: '请输入大类名称' }]}>
+          <Form.Item name="name" label="场景名称" rules={[{ required: true, message: '请输入场景名称' }]}>
             <Input />
           </Form.Item>
         </Form>

@@ -29,6 +29,8 @@
 .cp-actions{ margin-left:auto; display:flex; gap:8px }
 .cp-total{ margin-left:12px; color:var(--muted); }
 
+.cp-current-cat{ color:var(--muted); font-size:14px; margin-left:6px }
+
 .cp-body{ margin-top:20px }
 .cp-empty{ text-align:center; padding:60px; color:var(--muted) }
 .cp-empty-emoji{ font-size:48px }
@@ -49,6 +51,8 @@
 .cp-threshold{ margin-top:8px; text-align:center }
 .cp-threshold-inner{ font-size:12px; color:var(--muted) }
 .cp-footer-buttons{ display:flex; gap:12px; margin-top:16px; justify-content:center }
+
+.cp-current-cat{ color: var(--danger); font-weight: 700; }
 
 .cp-select{ width:140px }
 .cp-file-input{ display:none }
