@@ -1,36 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Button, Select, Modal, Input, InputNumber, Upload, Form, message, Image as AntdImage } from 'antd'
+import { useNavigate } from 'react-router-dom'
 import './CountersPage.css'
 import type { UploadFile } from 'antd/es/upload/interface'
-
-type Counter = {
-  id: number
-  name: string
-  value: number
-  image?: string | null
-  maxValue?: number | null
-}
-
-const STORAGE_KEY = 'counters_data'
+import { Category, Counter, Persisted, loadState, saveState } from '../lib/state'
 const THEME_KEY = 'app_theme'
-
-function loadCounters(): Counter[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch (e) {
-    console.error(e)
-    return []
-  }
-}
-
-function saveCounters(counters: Counter[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(counters))
-  } catch (e) {
-    console.error('保存失败', e)
-  }
-}
 
 async function compressImage(file: File, maxWidth = 800, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -69,33 +43,54 @@ async function compressImage(file: File, maxWidth = 800, quality = 0.8): Promise
 }
 
 export default function CountersPage(): JSX.Element {
-  const [counters, setCounters] = useState<Counter[]>(() => loadCounters())
-  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const persisted = loadState()
+  const [categories, setCategories] = useState<Category[]>(() => persisted.categories.length ? persisted.categories : [{ id: Date.now(), name: '默认' }])
+  const [counters, setCounters] = useState<Counter[]>(() => persisted.counters.length ? persisted.counters : [])
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number>(() => persisted.categories.length ? persisted.categories[0].id : (persisted.counters[0]?.categoryId ?? (Date.now())))
+  const [editingCounterId, setEditingCounterId] = useState<number | null>(null)
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false)
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [batchOpen, setBatchOpen] = useState(false)
   const [theme, setTheme] = useState<string>(() => localStorage.getItem(THEME_KEY) || 'dark')
   const imageInputRef = useRef<HTMLInputElement | null>(null)
-  const [currentImageUploadIndex, setCurrentImageUploadIndex] = useState<number | null>(null)
+  const [currentImageUploadId, setCurrentImageUploadId] = useState<number | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
 
-  useEffect(() => saveCounters(counters), [counters])
+  useEffect(() => saveState({ categories, counters }), [categories, counters])
 
-  function openModal(index: number | null = null) {
-    setEditingIndex(index)
+  useEffect(() => {
+    function onStateChanged() {
+      const p = loadState()
+      setCategories(p.categories.length ? p.categories : [{ id: Date.now(), name: '默认' }])
+      setCounters(p.counters)
+      if (p.categories.length) setSelectedCategoryId(p.categories[0].id)
+    }
+    window.addEventListener('appStateChanged', onStateChanged)
+    return () => window.removeEventListener('appStateChanged', onStateChanged)
+  }, [])
+
+  function openModal(counterId: number | null = null) {
+    setEditingCounterId(counterId)
     setModalOpen(true)
   }
 
   function closeModal() {
-    setEditingIndex(null)
+    setEditingCounterId(null)
     setModalOpen(false)
   }
 
   async function handleAddOrEdit(form: { name: string; maxValue?: number | null; imageFile?: File | null }) {
-    if (editingIndex === null) {
+    if (editingCounterId === null) {
+      if (!selectedCategoryId) {
+        Modal.confirm({ title: '请先选择或创建一个大类', content: '当前没有可用大类，是否现在创建一个？', okText: '创建', cancelText: '取消', onOk() { setCategoryModalOpen(true) } })
+        return
+      }
       let imageData: string | undefined = undefined
       if (form.imageFile) imageData = await compressImage(form.imageFile)
       const newCounter: Counter = {
@@ -103,7 +98,8 @@ export default function CountersPage(): JSX.Element {
         name: form.name,
         value: 0,
         image: imageData || null,
-        maxValue: form.maxValue ?? null
+        maxValue: form.maxValue ?? null,
+        categoryId: selectedCategoryId
       }
       setCounters((s) => [...s, newCounter])
     } else {
@@ -111,42 +107,34 @@ export default function CountersPage(): JSX.Element {
       if (form.imageFile) {
         maybeImage = await compressImage(form.imageFile)
       }
-      setCounters((s) => {
-        const copy = [...s]
-        const c = copy[editingIndex]
-        if (!c) return s
-        c.name = form.name
-        if (maybeImage) c.image = maybeImage
-        c.maxValue = form.maxValue ?? null
-        copy[editingIndex] = c
-        return copy
-      })
+      setCounters((s) => s.map(c => c.id === editingCounterId ? { ...c, name: form.name, image: maybeImage ?? c.image, maxValue: form.maxValue ?? null } : c))
     }
     closeModal()
   }
 
-  function increase(index: number) {
-    const nextCounters = counters.map((c, i) => i === index ? { ...c, value: c.value + 1 } : c)
-    setCounters(nextCounters)
-    const changed = nextCounters[index]
-    if (changed && changed.maxValue && changed.value === changed.maxValue) {
-      Modal.info({
-        title: '达到最大阈值！',
-        content: <div>{`计数器 "${changed.name}" 已达到最大阈值 ${changed.maxValue}。`}</div>,
-        okText: '知道了'
-      })
-    }
+  function increase(counterId: number) {
+    setCounters((s) => {
+      const next = s.map(c => c.id === counterId ? { ...c, value: c.value + 1 } : c)
+      const changed = next.find(x => x.id === counterId)
+      if (changed && changed.maxValue && changed.value === changed.maxValue) {
+        // 延后展示，确保只调用一次
+        setTimeout(() => {
+          Modal.info({ title: '达到最大阈值！', content: <div>{`计数器 "${changed.name}" 已达到最大阈值 ${changed.maxValue}。`}</div>, okText: '知道了' })
+        }, 0)
+      }
+      return next
+    })
   }
 
-  function decrease(index: number) {
-    setCounters((s) => s.map((c, i) => i === index ? { ...c, value: Math.max(0, c.value - 1) } : c))
+  function decrease(counterId: number) {
+    setCounters((s) => s.map(c => c.id === counterId ? { ...c, value: Math.max(0, c.value - 1) } : c))
   }
 
-  function resetCounter(index: number) {
-    setCounters((s) => s.map((c, i) => i === index ? { ...c, value: 0 } : c))
+  function resetCounter(counterId: number) {
+    setCounters((s) => s.map(c => c.id === counterId ? { ...c, value: 0 } : c))
   }
 
-  function deleteCounter(index: number) {
+  function deleteCounter(counterId: number) {
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这个计数器吗？',
@@ -154,42 +142,38 @@ export default function CountersPage(): JSX.Element {
       cancelText: '取消',
       okButtonProps: { danger: true },
       onOk() {
-        setCounters((s) => s.filter((_, i) => i !== index))
+        setCounters((s) => s.filter((c) => c.id !== counterId))
       }
     })
   }
 
-  function openImagePicker(index: number) {
-    setCurrentImageUploadIndex(index)
+  function openImagePicker(counterId: number) {
+    setCurrentImageUploadId(counterId)
     imageInputRef.current?.click()
   }
 
   async function handleImageSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files || e.target.files.length === 0 || currentImageUploadIndex === null) return
+  if (!e.target.files || e.target.files.length === 0 || currentImageUploadId === null) return
     const file = e.target.files[0]
     if (!file.type.startsWith('image/')) { window.alert('请选择图片文件'); return }
     try {
       const data = await compressImage(file)
-      setCounters((s) => {
-        const copy = [...s]
-        copy[currentImageUploadIndex!] = { ...copy[currentImageUploadIndex!], image: data }
-        return copy
-      })
+      setCounters((s) => s.map(c => c.id === currentImageUploadId ? { ...c, image: data } : c))
     } catch (err) {
       window.alert('图片处理失败: ' + (err as Error).message)
     }
     e.currentTarget.value = ''
-    setCurrentImageUploadIndex(null)
+  setCurrentImageUploadId(null)
   }
 
   function resetAll() {
     Modal.confirm({
       title: '确认重置',
-      content: `确定要重置所有 ${counters.length} 个计数器吗？`,
+      content: `确定要重置当前大类下的 ${counters.filter(c=>c.categoryId===selectedCategoryId).length} 个计数器吗？`,
       okText: '重置',
       cancelText: '取消',
       onOk() {
-        setCounters((s) => s.map(c => ({ ...c, value: 0 })))
+        setCounters((s) => s.map(c => c.categoryId === selectedCategoryId ? { ...c, value: 0 } : c))
       }
     })
   }
@@ -198,8 +182,26 @@ export default function CountersPage(): JSX.Element {
   function closeBatchModal() { setBatchOpen(false) }
 
   function applyBatchThreshold(val: number | null) {
-    setCounters((s) => s.map(c => ({ ...c, maxValue: val })))
+    setCounters((s) => s.map(c => c.categoryId === selectedCategoryId ? { ...c, maxValue: val } : c))
     closeBatchModal()
+  }
+
+  function deleteCategory(catId: number) {
+    const cat = categories.find(c => c.id === catId)
+    if (!cat) return
+    Modal.confirm({
+      title: '删除大类',
+      content: `删除大类 "${cat.name}" 会同时删除其下所有计数器，确定吗？`,
+      okText: '删除',
+      okButtonProps: { danger: true },
+      onOk() {
+        const newCats = categories.filter(c => c.id !== catId)
+        setCategories(newCats)
+        setCounters(s => s.filter(c => c.categoryId !== catId))
+        if (newCats.length) setSelectedCategoryId(newCats[0].id)
+        else setSelectedCategoryId(0)
+      }
+    })
   }
 
   return (
@@ -207,8 +209,13 @@ export default function CountersPage(): JSX.Element {
       <div className="cp-header">
         <h1 className="cp-title">自动统计计数器</h1>
 
-            <div className="cp-controls">
+        <div className="cp-controls">
           <div className="cp-theme">
+            <span className="cp-theme-label">大类</span>
+            <Select value={selectedCategoryId} onChange={(v) => setSelectedCategoryId(v)} className="cp-select" options={categories.map(c => ({ value: c.id, label: c.name }))} />
+            <Button size="small" onClick={() => navigate('/categories')}>管理大类</Button>
+
+            <div style={{ width: 12 }} />
             <span className="cp-theme-label">主题</span>
             <Select value={theme} onChange={(v) => setTheme(v)} className="cp-select" options={[
               { value: 'dark', label: '深色' },
@@ -220,71 +227,75 @@ export default function CountersPage(): JSX.Element {
           </div>
 
           <div className="cp-actions">
-            <Button type="default" size="middle" onClick={resetAll} disabled={counters.length===0}>重置全部</Button>
-            <Button type="default" size="middle" onClick={openBatchModal} disabled={counters.length===0}>批量修改阈值</Button>
-            <Button type="default" size="middle" onClick={() => openModal(null)}>添加计数器</Button>
+            <Button type="default" size="middle" onClick={resetAll} disabled={counters.filter(c=>c.categoryId===selectedCategoryId).length===0}>重置全部</Button>
+            <Button type="default" size="middle" onClick={openBatchModal} disabled={counters.filter(c=>c.categoryId===selectedCategoryId).length===0}>批量修改阈值</Button>
+            <Button type="default" size="middle" onClick={() => openModal(null)} disabled={!selectedCategoryId}>添加计数器</Button>
           </div>
         </div>
 
-        <div className="cp-total">{counters.reduce((a, b) => a + b.value, 0)}</div>
+        <div className="cp-total">{counters.filter(c=>c.categoryId===selectedCategoryId).reduce((a,b)=>a+b.value,0)}</div>
       </div>
 
       <div className="cp-body">
-        {counters.length === 0 ? (
-          <div className="cp-empty">
-            <div className="cp-empty-emoji">📊</div>
-            <div>还没有计数器，点击上方按钮添加一个吧！</div>
-          </div>
-        ) : (
-          <div className="cp-grid">
-            {counters.map((counter, idx) => (
-              <div key={counter.id} className="cp-card">
-                <div className="cp-card-header">
-                  <h3 className="cp-card-title">{counter.name}</h3>
-                  <div className="cp-card-controls">
-                    <Button type="primary" size="middle" onClick={() => openModal(idx)} title="编辑">编辑</Button>
-                    <Button type="default" danger size="middle" onClick={() => deleteCounter(idx)} title="删除">删除</Button>
+        {(() => {
+          const visibleCounters = counters.filter(c => c.categoryId === selectedCategoryId)
+          if (visibleCounters.length === 0) return (
+            <div className="cp-empty">
+              <div className="cp-empty-emoji">📊</div>
+              <div>还没有计数器，点击上方按钮添加一个吧！</div>
+            </div>
+          )
+          return (
+            <div className="cp-grid">
+              {visibleCounters.map((counter) => (
+                <div key={counter.id} className="cp-card">
+                  <div className="cp-card-header">
+                    <h3 className="cp-card-title">{counter.name}</h3>
+                    <div className="cp-card-controls">
+                      <Button type="primary" size="middle" onClick={() => openModal(counter.id)} title="编辑">编辑</Button>
+                      <Button type="default" danger size="middle" onClick={() => deleteCounter(counter.id)} title="删除">删除</Button>
+                    </div>
+                  </div>
+
+                  <div className="cp-avatar-row">
+                    <div className="cp-avatar-wrapper">
+                      {counter.image ? (
+                        <AntdImage src={counter.image} alt={counter.name} className="cp-avatar" preview />
+                      ) : (
+                        <div onClick={() => openImagePicker(counter.id)} className="cp-avatar-placeholder">点击选择图片</div>
+                      )}
+                    </div>
+                    <Button type="default" size="small" shape="circle" className="cp-change-btn" title="更换图片" onClick={(e) => { e.stopPropagation(); openImagePicker(counter.id) }}>⟳</Button>
+                  </div>
+
+                  <div className="cp-value">{counter.value}</div>
+
+                  <div className="cp-threshold">{counter.maxValue ? <div className="cp-threshold-inner">{counter.maxValue && counter.value >= counter.maxValue ? '⚠️ ' : ''}最大阈值: {counter.maxValue}</div> : null}</div>
+
+                  <div className="cp-footer-buttons">
+                    <Button type="default" size="middle" onClick={() => decrease(counter.id)} disabled={counter.value===0}>−</Button>
+                    <Button type="default" size="middle" onClick={() => resetCounter(counter.id)}>重置</Button>
+                    <Button type="default" size="middle" onClick={() => increase(counter.id)}>+</Button>
                   </div>
                 </div>
-
-                <div className="cp-avatar-row">
-                  <div className="cp-avatar-wrapper">
-                    {counter.image ? (
-                      <AntdImage src={counter.image} alt={counter.name} className="cp-avatar" preview />
-                    ) : (
-                      <div onClick={() => openImagePicker(idx)} className="cp-avatar-placeholder">点击选择图片</div>
-                    )}
-                  </div>
-                  <Button type="default" size="small" shape="circle" className="cp-change-btn" title="更换图片" onClick={(e) => { e.stopPropagation(); openImagePicker(idx) }}>⟳</Button>
-                </div>
-
-                <div className="cp-value">{counter.value}</div>
-
-                <div className="cp-threshold">{counter.maxValue ? <div className="cp-threshold-inner">{counter.maxValue && counter.value >= counter.maxValue ? '⚠️ ' : ''}最大阈值: {counter.maxValue}</div> : null}</div>
-
-                <div className="cp-footer-buttons">
-                  <Button type="default" size="middle" onClick={() => decrease(idx)} disabled={counter.value===0}>−</Button>
-                  <Button type="default" size="middle" onClick={() => resetCounter(idx)}>重置</Button>
-                  <Button type="default" size="middle" onClick={() => increase(idx)}>+</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
   <input ref={imageInputRef} type="file" accept="image/*" className="cp-file-input" onChange={handleImageSelected} />
 
       {modalOpen && (
         <CounterModal
-          initial={editingIndex !== null ? counters[editingIndex] : undefined}
+          initial={editingCounterId !== null ? counters.find(c => c.id === editingCounterId) : undefined}
           onClose={closeModal}
           onSave={handleAddOrEdit}
         />
       )}
 
       {batchOpen && (
-        <BatchModal counters={counters} onClose={closeBatchModal} onApply={applyBatchThreshold} />
+        <BatchModal counters={counters.filter(c => c.categoryId === selectedCategoryId)} onClose={closeBatchModal} onApply={applyBatchThreshold} />
       )}
     </div>
   )
