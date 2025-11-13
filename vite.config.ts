@@ -7,6 +7,9 @@ export default defineConfig(({ command }) => ({
   server: {
     port: 5173
   },
+  // Ensure production built index.html uses relative paths so it works when loaded
+  // via file:// or from Electron's local files
+  base: './',
   build: {
     outDir: 'dist'
   }

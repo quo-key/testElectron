@@ -4,9 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import './CountersPage.css'
 import type { UploadFile } from 'antd/es/upload/interface'
 import { Category, Counter, Persisted, loadState, saveState } from '../lib/state'
-const THEME_KEY = 'app_theme'
 
-async function compressImage(file: File, maxWidth = 800, quality = 0.8): Promise<string> {
+async function compressImage(file: File, maxWidth = 800, quality = 0.8, mimeType?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -21,6 +20,14 @@ async function compressImage(file: File, maxWidth = 800, quality = 0.8): Promise
         canvas.width = width
         canvas.height = height
         const ctx = canvas.getContext('2d')!
+        const srcType = (file && file.type) || ''
+        const usePng = srcType.includes('png')
+        const mime = usePng ? 'image/png' : 'image/jpeg'
+        // When target is JPEG, draw a white background to avoid black pixels in transparent areas
+        if (mime === 'image/jpeg') {
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+        }
         ctx.drawImage(img, 0, 0, width, height)
         canvas.toBlob(
           (blob) => {
@@ -30,8 +37,7 @@ async function compressImage(file: File, maxWidth = 800, quality = 0.8): Promise
             r.onerror = reject
             r.readAsDataURL(blob)
           },
-          'image/jpeg',
-          quality
+          mime, quality
         )
       }
       img.onerror = reject
@@ -42,8 +48,10 @@ async function compressImage(file: File, maxWidth = 800, quality = 0.8): Promise
   })
 }
 
-export default function CountersPage(): JSX.Element {
+export default function CountersPage({ theme, setTheme }: { theme: 'light' | 'dark'; setTheme: (t: 'light' | 'dark') => void }): JSX.Element {
   const persisted = loadState()
+  const [messageApi, messageContextHolder] = message.useMessage()
+  const [modalApi, modalContextHolder] = Modal.useModal()
   const [categories, setCategories] = useState<Category[]>(() => persisted.categories.length ? persisted.categories : [{ id: Date.now(), name: '默认' }])
   const [counters, setCounters] = useState<Counter[]>(() => persisted.counters.length ? persisted.counters : [])
   const [selectedCategoryId, setSelectedCategoryId] = useState<number>(() => persisted.categories.length ? persisted.categories[0].id : (persisted.counters[0]?.categoryId ?? (Date.now())))
@@ -52,15 +60,11 @@ export default function CountersPage(): JSX.Element {
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [batchOpen, setBatchOpen] = useState(false)
-  const [theme, setTheme] = useState<string>(() => localStorage.getItem(THEME_KEY) || 'dark')
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const [currentImageUploadId, setCurrentImageUploadId] = useState<number | null>(null)
   const navigate = useNavigate()
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem(THEME_KEY, theme)
-  }, [theme])
+  // theme is managed globally in Root; CountersPage receives theme and setTheme via props
 
   useEffect(() => saveState({ categories, counters }), [categories, counters])
 
@@ -90,11 +94,64 @@ export default function CountersPage(): JSX.Element {
   async function handleAddOrEdit(form: { name: string; maxValue?: number | null; imageFile?: File | null }) {
     if (editingCounterId === null) {
       if (!selectedCategoryId) {
-        Modal.confirm({ title: '请先选择或创建一个大类', content: '当前没有可用大类，是否现在创建一个？', okText: '创建', cancelText: '取消', onOk() { setCategoryModalOpen(true) } })
+  modalApi.confirm({ title: '请先选择或创建一个大类', content: '当前没有可用大类，是否现在创建一个？', okText: '创建', cancelText: '取消', onOk() { setCategoryModalOpen(true) } })
         return
       }
+      // If an image is provided, compress then try to upload (IPC -> HTTP). If upload fails, keep data URL (will not be persisted).
       let imageData: string | undefined = undefined
-      if (form.imageFile) imageData = await compressImage(form.imageFile)
+      if (form.imageFile) {
+        const initialData = await compressImage(form.imageFile)
+        const isElectron = typeof (window as any)?.electronAPI !== 'undefined'
+
+        const blobFromData = async (dataUrl: string) => (await (await fetch(dataUrl)).blob())
+
+        const tryUploadWithQualities = async (dataUrl: string): Promise<string | null> => {
+          const qualities = [0.8, 0.6, 0.4, 0.2]
+          for (const q of qualities) {
+            try {
+              // re-compress with quality q
+              const recompressed = await (async () => {
+                if (q === 0.8) return dataUrl
+                // create blob from original file and recompress via canvas routine
+                const blob = await blobFromData(dataUrl)
+                // reuse compressImage by creating File (not ideal but works)
+                // If original was PNG and we are going to convert to JPEG to reduce size,
+                // ensure the File type reflects the target mime so compressImage will fill background.
+                const targetMime = form.imageFile!.type && form.imageFile!.type.startsWith('image/png') ? 'image/png' : 'image/jpeg'
+                const file = new File([blob], form.imageFile!.name, { type: targetMime })
+                return await compressImage(file, 800, q, targetMime)
+              })()
+
+              const blob = await blobFromData(recompressed)
+              if (isElectron) {
+                const b64 = await new Promise<string>((resolve, reject) => {
+                  const r = new FileReader()
+                  r.onload = () => resolve(r.result as string)
+                  r.onerror = reject
+                  r.readAsDataURL(blob)
+                })
+                const resp = await (window as any).electronAPI.saveImage({ name: form.imageFile!.name || `img_${Date.now()}.jpg`, base64: b64 })
+                if (resp && resp.url) return resp.url
+              } else {
+                const fd = new FormData()
+                fd.append('file', blob, form.imageFile!.name || `upload_${Date.now()}.jpg`)
+                const resp = await fetch('http://localhost:3001/upload', { method: 'POST', body: fd })
+                if (resp.ok) {
+                  const j = await resp.json()
+                  return j.url as string
+                }
+              }
+            } catch (e) {
+              // try next quality
+            }
+          }
+          return null
+        }
+
+        const uploaded = await tryUploadWithQualities(initialData)
+        if (uploaded) imageData = uploaded
+        else imageData = initialData // fallback to data URL (will be stripped from localStorage)
+      }
       const newCounter: Counter = {
         id: Date.now(),
         name: form.name,
@@ -107,7 +164,50 @@ export default function CountersPage(): JSX.Element {
     } else {
       let maybeImage: string | undefined = undefined
       if (form.imageFile) {
-        maybeImage = await compressImage(form.imageFile)
+        const initialData = await compressImage(form.imageFile)
+        const isElectron = typeof (window as any)?.electronAPI !== 'undefined'
+
+        const blobFromData = async (dataUrl: string) => (await (await fetch(dataUrl)).blob())
+
+        const tryUploadWithQualities = async (dataUrl: string): Promise<string | null> => {
+          const qualities = [0.8, 0.6, 0.4, 0.2]
+          for (const q of qualities) {
+            try {
+              const recompressed = q === 0.8 ? dataUrl : await (async () => {
+                const blob = await blobFromData(dataUrl)
+                const targetMime = form.imageFile!.type && form.imageFile!.type.startsWith('image/png') ? 'image/png' : 'image/jpeg'
+                const file = new File([blob], form.imageFile!.name, { type: targetMime })
+                return await compressImage(file, 800, q, targetMime)
+              })()
+              const blob = await blobFromData(recompressed)
+              if (isElectron) {
+                const b64 = await new Promise<string>((resolve, reject) => {
+                  const r = new FileReader()
+                  r.onload = () => resolve(r.result as string)
+                  r.onerror = reject
+                  r.readAsDataURL(blob)
+                })
+                const resp = await (window as any).electronAPI.saveImage({ name: form.imageFile!.name || `img_${Date.now()}.jpg`, base64: b64 })
+                if (resp && resp.url) return resp.url
+              } else {
+                const fd = new FormData()
+                fd.append('file', blob, form.imageFile!.name || `upload_${Date.now()}.jpg`)
+                const resp = await fetch('http://localhost:3001/upload', { method: 'POST', body: fd })
+                if (resp.ok) {
+                  const j = await resp.json()
+                  return j.url as string
+                }
+              }
+            } catch (e) {
+              // continue
+            }
+          }
+          return null
+        }
+
+        const uploaded = await tryUploadWithQualities(initialData)
+        if (uploaded) maybeImage = uploaded
+        else maybeImage = initialData
       }
       setCounters((s) => s.map(c => c.id === editingCounterId ? { ...c, name: form.name, image: maybeImage ?? c.image, maxValue: form.maxValue ?? null } : c))
     }
@@ -121,7 +221,7 @@ export default function CountersPage(): JSX.Element {
       if (changed && changed.maxValue && changed.value === changed.maxValue) {
         // 延后展示，确保只调用一次
         setTimeout(() => {
-          Modal.info({ title: '达到最大阈值！', content: <div>{`计数器 "${changed.name}" 已达到最大阈值 ${changed.maxValue}。`}</div>, okText: '知道了' })
+          modalApi.info({ title: '达到最大阈值！', content: <div>{`计数器 "${changed.name}" 已达到最大阈值 ${changed.maxValue}。`}</div>, okText: '知道了' })
         }, 0)
       }
       return next
@@ -137,13 +237,30 @@ export default function CountersPage(): JSX.Element {
   }
 
   function deleteCounter(counterId: number) {
-    Modal.confirm({
+      modalApi.confirm({
       title: '确认删除',
       content: '确定要删除这个计数器吗？',
       okText: '删除',
       cancelText: '取消',
       okButtonProps: { danger: true },
-      onOk() {
+      async onOk() {
+        // attempt to delete stored image if present and not an inline data URL
+        try {
+          const target = counters.find((c) => c.id === counterId)
+          if (target && target.image && !(target.image.startsWith && target.image.startsWith('data:'))) {
+            const isElectron = typeof (window as any)?.electronAPI !== 'undefined'
+            if (isElectron) {
+              const filename = String(target.image).split('/').pop()
+              try { await (window as any).electronAPI.deleteImage({ filename }) } catch (e) { /* ignore */ }
+            } else {
+              try {
+                await fetch('http://localhost:3001/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: target.image }) })
+              } catch (e) { /* ignore */ }
+            }
+          }
+        } catch (e) {
+          // ignore errors during deletion
+        }
         setCounters((s) => s.filter((c) => c.id !== counterId))
       }
     })
@@ -159,8 +276,48 @@ export default function CountersPage(): JSX.Element {
     const file = e.target.files[0]
     if (!file.type.startsWith('image/')) { window.alert('请选择图片文件'); return }
     try {
+      // compress to data URL first
       const data = await compressImage(file)
-      setCounters((s) => s.map(c => c.id === currentImageUploadId ? { ...c, image: data } : c))
+
+      // Try to upload using Electron IPC or local upload server (follow SecondPage behavior)
+      const isElectron = typeof (window as any)?.electronAPI !== 'undefined'
+
+      // helper: blob to dataURL
+      const blobToDataURL = (blob: Blob) => new Promise<string>((resolve, reject) => {
+        const r = new FileReader()
+        r.onload = () => resolve(r.result as string)
+        r.onerror = (err) => reject(err)
+        r.readAsDataURL(blob)
+      })
+
+      const uploadBlob = async (blob: Blob, filename?: string): Promise<string> => {
+        if (isElectron) {
+          const b64 = await blobToDataURL(blob)
+          const resp = await (window as any).electronAPI.saveImage({ name: filename || `img_${Date.now()}.jpg`, base64: b64 })
+          return resp?.url
+        } else {
+          const fd = new FormData()
+          fd.append('file', blob, filename || `upload_${Date.now()}.jpg`)
+          const resp = await fetch('http://localhost:3001/upload', { method: 'POST', body: fd })
+          if (!resp.ok) throw new Error('upload failed')
+          const json = await resp.json()
+          return json.url as string
+        }
+      }
+
+      try {
+        const blob = await (await fetch(data)).blob()
+        const url = await uploadBlob(blob, file.name)
+        if (url) {
+          setCounters((s) => s.map(c => c.id === currentImageUploadId ? { ...c, image: url } : c))
+        } else {
+          // fallback to inline data URL
+          setCounters((s) => s.map(c => c.id === currentImageUploadId ? { ...c, image: data } : c))
+        }
+      } catch (err) {
+        // upload failed -> fallback to inline data URL
+        setCounters((s) => s.map(c => c.id === currentImageUploadId ? { ...c, image: data } : c))
+      }
     } catch (err) {
       window.alert('图片处理失败: ' + (err as Error).message)
     }
@@ -169,7 +326,7 @@ export default function CountersPage(): JSX.Element {
   }
 
   function resetAll() {
-    Modal.confirm({
+    modalApi.confirm({
       title: '确认重置',
       content: `确定要重置当前大类下的 ${counters.filter(c=>c.categoryId===selectedCategoryId).length} 个计数器吗？`,
       okText: '重置',
@@ -191,12 +348,29 @@ export default function CountersPage(): JSX.Element {
   function deleteCategory(catId: number) {
     const cat = categories.find(c => c.id === catId)
     if (!cat) return
-    Modal.confirm({
+    modalApi.confirm({
       title: '删除大类',
       content: `删除大类 "${cat.name}" 会同时删除其下所有计数器，确定吗？`,
       okText: '删除',
       okButtonProps: { danger: true },
-      onOk() {
+      async onOk() {
+        try {
+          // delete images of counters belonging to this category
+          const toDelete = counters.filter(c => c.categoryId === catId && c.image && !(c.image.startsWith && c.image.startsWith('data:')))
+          const isElectron = typeof (window as any)?.electronAPI !== 'undefined'
+          for (const it of toDelete) {
+            try {
+              if (isElectron) {
+                const filename = String(it.image).split('/').pop()
+                await (window as any).electronAPI.deleteImage({ filename })
+              } else {
+                await fetch('http://localhost:3001/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: it.image }) })
+              }
+            } catch (e) { /* ignore per-item delete errors */ }
+          }
+        } catch (e) {
+          // ignore overall deletion errors
+        }
         const newCats = categories.filter(c => c.id !== catId)
         setCategories(newCats)
         setCounters(s => s.filter(c => c.categoryId !== catId))
@@ -208,6 +382,8 @@ export default function CountersPage(): JSX.Element {
 
   return (
     <div className="cp-container">
+  {messageContextHolder}
+  {modalContextHolder}
       <div className="cp-header">
         {/* <h1 className="cp-title">自动统计计数器</h1> */}
 
@@ -215,9 +391,9 @@ export default function CountersPage(): JSX.Element {
           <div className="cp-theme">
             <span className="cp-theme-label">场景</span>
             <Select value={selectedCategoryId} onChange={(v) => setSelectedCategoryId(v)} className="cp-select" options={categories.map(c => ({ value: c.id, label: c.name }))} />
-            <Button size="small" onClick={() => navigate('/categories')}>管理场景</Button>
+            {/* <Button size="small" onClick={() => navigate('/categories')}>管理场景</Button> */}
 
-            <div style={{ width: 12 }} />
+            {/* <div style={{ width: 12 }} />
             <span className="cp-theme-label">主题</span>
             <Select value={theme} onChange={(v) => setTheme(v)} className="cp-select" options={[
               { value: 'dark', label: '深色' },
@@ -225,7 +401,7 @@ export default function CountersPage(): JSX.Element {
               { value: 'blue', label: '蓝色' },
               { value: 'green', label: '绿色' },
               { value: 'purple', label: '紫色' }
-            ]} />
+            ]} /> */}
           </div>
 
           <div className="cp-actions">
@@ -292,6 +468,7 @@ export default function CountersPage(): JSX.Element {
           initial={editingCounterId !== null ? counters.find(c => c.id === editingCounterId) : undefined}
           onClose={closeModal}
           onSave={handleAddOrEdit}
+          messageApi={messageApi}
         />
       )}
 
@@ -302,7 +479,7 @@ export default function CountersPage(): JSX.Element {
   )
 }
 
-function CounterModal({ initial, onClose, onSave }: { initial?: Counter; onClose: () => void; onSave: (data: { name: string; maxValue?: number | null; imageFile?: File | null }) => void }) {
+function CounterModal({ initial, onClose, onSave, messageApi }: { initial?: Counter; onClose: () => void; onSave: (data: { name: string; maxValue?: number | null; imageFile?: File | null }) => void; messageApi?: any }) {
   const [form] = Form.useForm()
   const [fileList, setFileList] = useState<UploadFile[]>([])
 
@@ -318,7 +495,7 @@ function CounterModal({ initial, onClose, onSave }: { initial?: Counter; onClose
   function handleOk() {
     form.validateFields().then(values => {
       const mv = values.maxValue ?? null
-      if (mv !== null && (isNaN(mv) || mv < 1)) { message.error('阈值必须是大于0的整数'); return }
+      if (mv !== null && (isNaN(mv) || mv < 1)) { (messageApi || message).error('阈值必须是大于0的整数'); return }
       const file = (fileList[0] as any) ?? null
       onSave({ name: values.name.trim(), maxValue: mv, imageFile: file as File | null })
     }).catch(() => {})

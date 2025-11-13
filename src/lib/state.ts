@@ -22,7 +22,19 @@ export function loadState(): Persisted {
 
 export function saveState(state: Persisted) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    // Avoid persisting large inline data URLs for images into localStorage.
+    // Replace any image fields that are data URLs with null before saving.
+    const safe: Persisted = {
+      categories: state.categories,
+      counters: (state.counters || []).map((c) => {
+        const copy: Counter = { ...c }
+        if (copy.image && typeof copy.image === 'string' && copy.image.startsWith('data:')) {
+          copy.image = null
+        }
+        return copy
+      })
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(safe))
   } catch (e) {
     console.error('保存失败', e)
   }
