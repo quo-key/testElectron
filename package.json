@@ -1,6 +1,6 @@
 {
   "name": "testdemo",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "TestDemo - 将静态页面打包为桌面应用",
   "main": "main.js",
   "scripts": {
@@ -38,11 +38,12 @@
     },
     "icon": "build/icon.ico",
     "npmRebuild": false,
-    "asar": false,
-    "compression": "store",
+    "asar": true,
+    "compression": "maximum",
     "artifactName": "${productName}-${version}.${ext}",
     "win": {
       "target": [
+        "nsis-web",
         "nsis"
       ]
     },

@@ -52,9 +52,10 @@ export default function CountersPage({ theme, setTheme }: { theme: 'light' | 'da
   const persisted = loadState()
   const [messageApi, messageContextHolder] = message.useMessage()
   const [modalApi, modalContextHolder] = Modal.useModal()
-  const [categories, setCategories] = useState<Category[]>(() => persisted.categories.length ? persisted.categories : [{ id: Date.now(), name: '默认' }])
-  const [counters, setCounters] = useState<Counter[]>(() => persisted.counters.length ? persisted.counters : [])
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number>(() => persisted.categories.length ? persisted.categories[0].id : (persisted.counters[0]?.categoryId ?? (Date.now())))
+  // No default categories: start from persisted value (may be empty)
+  const [categories, setCategories] = useState<Category[]>(() => (persisted && Array.isArray(persisted.categories)) ? persisted.categories : [])
+  const [counters, setCounters] = useState<Counter[]>(() => (persisted && Array.isArray(persisted.counters)) ? persisted.counters : [])
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number>(() => (persisted && Array.isArray(persisted.categories) && persisted.categories.length) ? persisted.categories[0].id : 0)
   const [editingCounterId, setEditingCounterId] = useState<number | null>(null)
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null)
@@ -71,9 +72,10 @@ export default function CountersPage({ theme, setTheme }: { theme: 'light' | 'da
   useEffect(() => {
     function onStateChanged() {
       const p = loadState()
-      setCategories(p.categories.length ? p.categories : [{ id: Date.now(), name: '默认' }])
-      setCounters(p.counters)
-      if (p.categories.length) setSelectedCategoryId(p.categories[0].id)
+      setCategories((p && Array.isArray(p.categories)) ? p.categories : [])
+      setCounters((p && Array.isArray(p.counters)) ? p.counters : [])
+      if (p && Array.isArray(p.categories) && p.categories.length) setSelectedCategoryId(p.categories[0].id)
+      else setSelectedCategoryId(0)
     }
     window.addEventListener('appStateChanged', onStateChanged)
     return () => window.removeEventListener('appStateChanged', onStateChanged)
@@ -93,8 +95,8 @@ export default function CountersPage({ theme, setTheme }: { theme: 'light' | 'da
 
   async function handleAddOrEdit(form: { name: string; maxValue?: number | null; imageFile?: File | null }) {
     if (editingCounterId === null) {
-      if (!selectedCategoryId) {
-  modalApi.confirm({ title: '请先选择或创建一个大类', content: '当前没有可用大类，是否现在创建一个？', okText: '创建', cancelText: '取消', onOk() { setCategoryModalOpen(true) } })
+      if (categories.length === 0) {
+        modalApi.confirm({ title: '请先创建一个场景', content: '当前没有可用场景，是否现在创建一个？', okText: '创建', cancelText: '取消', onOk() { setCategoryModalOpen(true) } })
         return
       }
       // If an image is provided, compress then try to upload (IPC -> HTTP). If upload fails, keep data URL (will not be persisted).
@@ -390,7 +392,7 @@ export default function CountersPage({ theme, setTheme }: { theme: 'light' | 'da
         <div className="cp-controls">
           <div className="cp-theme">
             <span className="cp-theme-label">场景</span>
-            <Select value={selectedCategoryId} onChange={(v) => setSelectedCategoryId(v)} className="cp-select" options={categories.map(c => ({ value: c.id, label: c.name }))} />
+            <Select value={selectedCategoryId || undefined} onChange={(v) => setSelectedCategoryId(v)} className="cp-select" options={categories.map(c => ({ value: c.id, label: c.name }))} placeholder="请先添加场景" />
             {/* <Button size="small" onClick={() => navigate('/categories')}>管理场景</Button> */}
 
             {/* <div style={{ width: 12 }} />
@@ -407,7 +409,7 @@ export default function CountersPage({ theme, setTheme }: { theme: 'light' | 'da
           <div className="cp-actions">
             <Button type="default" size="middle" onClick={resetAll} disabled={counters.filter(c=>c.categoryId===selectedCategoryId).length===0}>重置全部</Button>
             <Button type="default" size="middle" onClick={openBatchModal} disabled={counters.filter(c=>c.categoryId===selectedCategoryId).length===0}>批量修改阈值</Button>
-            <Button type="default" size="middle" onClick={() => openModal(null)} disabled={!selectedCategoryId}>添加计数器</Button>
+            <Button type="default" size="middle" onClick={() => openModal(null)} disabled={categories.length === 0}>添加计数器</Button>
           </div>
         </div>
         <div className="cp-total">今日 <span className="cp-current-cat">{currentCategoryName}</span> 累计已封：{counters.filter(c=>c.categoryId===selectedCategoryId).reduce((a,b)=>a+b.value,0)}</div>

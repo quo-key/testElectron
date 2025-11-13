@@ -4,7 +4,7 @@ param(
   [Parameter(Mandatory=$true)] [string]$Tag,
   [Parameter(Mandatory=$false)] [string]$ReleaseName = $Tag,
   [Parameter(Mandatory=$false)] [string]$Body = "Automated upload",
-  [Parameter(Mandatory=$false)] [string]$AssetPath = "dist\\my-tools-1.0.0.zip"
+  [Parameter(Mandatory=$false)] [string]$AssetPath = "dist\\my-tools-1.0.3.zip"
 )
 
 if (-not $env:GITHUB_TOKEN) {
