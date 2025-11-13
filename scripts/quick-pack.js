@@ -5,7 +5,7 @@ const fse = require('fs-extra')
 async function main() {
   const root = path.resolve(__dirname, '..')
   const electronDist = path.join(root, 'node_modules', 'electron', 'dist')
-  const outDir = path.join(root, 'dist', 'quick', '计算器-win32-x64')
+  const outDir = path.join(root, 'dist', 'quick', 'my-tools-win32-x64')
   const appResources = path.join(outDir, 'resources', 'app')
 
   console.log('electronDist:', electronDist)
@@ -61,7 +61,7 @@ async function main() {
 
   // 重命名 electron.exe 为 应用名
   const exeSrc = path.join(outDir, 'electron.exe')
-  const exeDest = path.join(outDir, '计算器.exe')
+  const exeDest = path.join(outDir, 'my-tools.exe')
   if (fs.existsSync(exeSrc)) {
     await fse.move(exeSrc, exeDest, { overwrite: true })
     console.log('已创建可执行文件:', exeDest)

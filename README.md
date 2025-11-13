@@ -20,7 +20,7 @@ npm install --save-dev electron electron-builder
 
 ```powershell
 npm run start
-.\dist\win-unpacked\计算器.exe --devtools
+.\dist\win-unpacked\my-tools.exe --devtools
 ```
 
 

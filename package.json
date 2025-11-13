@@ -10,7 +10,6 @@
     "build:all": "npm run client:build && npm run generate-icon && electron-builder --win nsis",
     "dist:fast": "npm run generate-icon && electron-builder --win portable --x64 --dir",
     "quick-pack": "node ./scripts/quick-pack.js",
-    "package-installer": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Compress-Archive -Path .\\dist\\计算器-1.0.0.exe -DestinationPath .\\dist\\计算器-1.0.0.zip -Force\"",
     "generate-icon": "node ./scripts/generate-icon.js",
     "upload-server": "node server/upload-server.js",
     "client:dev": "vite",
@@ -25,7 +24,7 @@
   "license": "MIT",
   "build": {
     "appId": "com.example.testdemo",
-    "productName": "计算器",
+    "productName": "my-tools",
     "files": [
       "dist/**/*",
       "main.js",
